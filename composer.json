@@ -1,7 +1,7 @@
 {
   "name": "maneuver/formal",
   "description": "Handle custom forms like a gentleman.",
-  "version": "0.0.1",
+  "version": "0.0.1-dev",
   "authors": [
     {
       "name": "David De Coninck",
@@ -11,16 +11,8 @@
   ],
   "require": {
     "php": ">=5.4.0",
-    "paquettg/php-html-parser": "1.6.*",
-    // "google/apiclient": "1.0.*@beta",
-    // "asimlqt/php-google-spreadsheet-client": "2.1.*"
+    "paquettg/php-html-parser": "1.6.*"
   },
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/asimlqt/php-google-spreadsheet-client"
-    }
-  ],
   "autoload": {
     "psr-0": {
       "Formal": "src/"
