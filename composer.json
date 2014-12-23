@@ -1,0 +1,30 @@
+{
+  "name": "maneuver/formal",
+  "description": "Handle custom forms like a gentleman.",
+  "version": "0.0.1",
+  "authors": [
+    {
+      "name": "David De Coninck",
+      "email": "david@maneuver.be",
+      "homepage": "http://maneuver.be"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0",
+    "paquettg/php-html-parser": "1.6.*",
+    // "google/apiclient": "1.0.*@beta",
+    // "asimlqt/php-google-spreadsheet-client": "2.1.*"
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/asimlqt/php-google-spreadsheet-client"
+    }
+  ],
+  "autoload": {
+    "psr-0": {
+      "Formal": "src/"
+    }
+  },
+  "minimum-stability": "dev"
+}
