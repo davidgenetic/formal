@@ -1,7 +1,7 @@
 {
   "name": "maneuver/formal",
   "description": "Handle custom forms like a gentleman.",
-  "version": "0.0.1-dev",
+  "version": "0.0.2-dev",
   "authors": [
     {
       "name": "David De Coninck",

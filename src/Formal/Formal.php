@@ -4,85 +4,205 @@ namespace Formal;
 
 use PHPHtmlParser\Dom;
 use Formal\Element\Form;
+use Formal\Element;
 
 class Formal {
 
   private static $forms = array();
-  private static $posts = array();
+  private static $submits = array();
+  private static $validates = array();
   private static $config = array();
 
+  /**
+   * Start collecting output of the form.
+   **/
   public static function start() {
     ob_start();
   }
 
+  /**
+   * End collecting output and parse it.
+   **/
   public static function end() {
     $contents = ob_get_contents();
     ob_end_clean();
-    echo self::build($contents);
+    echo self::parse($contents);
   }
 
-  public static function build($html) {
+  /**
+   * Parse HTML, build form, register event handlers.
+   **/
+  public static function parse($html) {
     $dom = new Dom();
     $dom->load($html);
 
     // Create form.
     $form = new Form($dom->find('form', 0));
-    self::$forms[$form->getToken()] = $form;
+    $token = $form->getToken();
+    self::$forms[$token] = $form;
+
+    // Flag to return the HTML of the form.
+    $outputform = TRUE;
+
+    // Setup config if not already available,
+    // to ensure availability of default values.
+    if (empty(self::$config[$token])) {
+      self::config($token);
+    }
+    $config = self::$config[$token];
+
+    // HTML to show.
+    $output = '';
 
     // Check for a post event and fire the post callback, if provided.
-    if (!empty($_POST) && isset($_POST['form_token'])) {
-      if ($_POST['form_token'] == $form->getToken()) {
-        if (isset(self::$posts[$form->getToken()])) {
-          $post_callback = self::$posts[$form->getToken()];
-          call_user_func_array($post_callback, array(self::getFormData($_POST)));
+    if ($postdata = self::isPost($form)) {
+      // var_dump($postdata);exit;
+      if (!$config['validateOnSubmit'] || self::validate($form, $postdata)) {
+        if (isset(self::$submits[$token])) {
+          $post_callback = self::$submits[$token];
+          $user_output = call_user_func_array($post_callback, array($postdata));
+          if (!empty($user_output)) {
+            return $user_output;
+          }
         }
+        if ($config['hideOnSubmit']) {
+          $outputform = FALSE;
+        }
+      }
+
+      // Check if their are any errors set on the form.
+      $errors = $form->getErrors();
+      if (count($errors)) {
+
+        // We need an HTML element to show the errors to the user.
+        $errorContainer = $dom->getElementById($config['errorContainer']);
+        if ($errorContainer) {
+          $errorContainer = new Element($errorContainer);
+          foreach ($errors as $fieldname => $errs) {
+            if (is_array($errs)) {
+              foreach ($errs as $message) {
+                $errorContainer->append('<div>'. $message .'</div>');
+              }
+            }
+          }
+          $output .= $errorContainer->getContent();
+        }
+
+        // Repopulate form with posted data.
+        $form->populate($postdata);
       }
     }
 
-    // Return HTML.
-    return $form->output();
+    if ($outputform) {
+      // Add form to output.
+      $output .= $form->getOutput();
+    }
+
+    return $output;
   }
 
-  public static function on($event, $target, $closure) {
-    if ($event == 'post') {
-      self::addEvent(self::$posts, $target, $closure);
+  /**
+   * Register an event handler for a specific form.
+   **/
+  public static function on($event, $form_token, $closure) {
+    if ($event == 'submit') {
+      self::addEvent(self::$submits, $form_token, $closure);
+    }
+    if ($event == 'validate') {
+      self::addEvent(self::$validates, $form_token, $closure);
     }
   }
 
-  public static function post($target, $closure) {
-    self::on('post', $target, $closure);
+  /**
+   * Get all posted data.
+   **/
+  public static function getFormData($data) {
+    unset($data['form_token']);
+    return $data;
   }
 
-
-  public static function getFormData($post) {
-    unset($post['form_token']);
-    return $post;
-  }
-
-  public static function config($target, $settings) {
+  /**
+   * Setup user defined config for a specific form.
+   **/
+  public static function config($form_token, $settings = array()) {
     $defaults = array(
-      'hideOnPost' => FALSE
+      'hideOnSubmit'      => FALSE,
+      'validateOnSubmit'  => TRUE,
+      'errorContainer' => '#errorContainer',
     );
 
     if (!empty($settings['post'])) {
-      self::on('post', $target, $settings['post']);
+      self::on('post', $form_token, $settings['post']);
       unset($settings['post']);
     }
 
     $settings = array_merge($defaults, $settings);
-    self::$config[$target] = $settings;
+    self::$config[$form_token] = $settings;
   }
 
-  /*** PRIVATE ***/
+  /**
+   * Validate posted data against a form.
+   **/
+  public static function validate($form, &$data) {
+    $token = $form->getToken();
 
-  private static function fetchForm($token) {
-    if (array_key_exists($token, self::$forms)) {
-      return self::$forms[$token];
+    // Anti-spam check.
+    // Only a bot can fill in the 'secret' field.
+    if (!empty($data['secret'])) {
+      die('antispam');
+      return FALSE;
+    }
+    unset($data['secret']);
+
+    self::validateFields($form, $data);
+    if (isset(self::$validates[$token])) {
+      call_user_func_array(self::$validates[$token], array($form, $data));
+    }
+    return count($form->getErrors()) === 0;
+  }
+
+  /***********************/
+  /*** PRIVATE METHODS ***/
+  /***********************/
+
+  /**
+   * Validate each field of a form aginast its attributes.
+   **/
+  private static function validateFields($form, $data) {
+    foreach ($form->fields as $field) {
+      if ($field->required && empty($data[$field->name])) {
+        $form->setError($field->name, $field->getLabel() . ' is verplicht');
+      }
     }
   }
 
+  /**
+   * Get form by token.
+   **/
+  private static function fetchForm($form_token) {
+    if (array_key_exists($form_token, self::$forms)) {
+      return self::$forms[$form_token];
+    }
+  }
+
+  /**
+   * Add event handler to an array.
+   **/
   private static function addEvent(&$holder, $target, $closure) {
     $holder[$target] = $closure;
+  }
+
+  /**
+   * Finds out if a specific form was submitted.
+   **/
+  private static function isPost($form) {
+    $bag = $form->getMethod() == 'post' ? $_POST : $_GET;
+
+    if (!empty($bag) && isset($bag['form_token']) && $bag['form_token'] == $form->getToken()) {
+      return self::getFormData($bag);
+    }
+
+    return FALSE;
   }
 
 }
