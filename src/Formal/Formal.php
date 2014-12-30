@@ -37,7 +37,8 @@ class Formal {
     $dom->load($html);
 
     // Create form.
-    $form = new Form($dom->find('form', 0));
+    $form = $dom->find('form', 0);
+    $form = new Form($form);
     $token = $form->getToken();
     self::$forms[$token] = $form;
 
@@ -72,6 +73,7 @@ class Formal {
 
       // Check if their are any errors set on the form.
       $errors = $form->getErrors();
+      // var_dump($errors);exit;
       if (count($errors)) {
 
         // We need an HTML element to show the errors to the user.
@@ -170,9 +172,21 @@ class Formal {
    **/
   private static function validateFields($form, $data) {
     foreach ($form->fields as $field) {
-      if ($field->required && empty($data[$field->name])) {
-        $form->setError($field->name, $field->getLabel() . ' is verplicht');
+      if (is_array($field)) {
+        if (count($field)) {
+          foreach ($field as $f) {
+            self::checkRequired($form, $f, $data);
+          }
+        }
+      } else {
+        self::checkRequired($form, $field, $data);
       }
+    }
+  }
+
+  private static function checkRequired($form, $field, $data) {
+    if ($field->required && empty($data[$field->name])) {
+      $form->setError($field->name, $field->getLabel() . ' is required.');
     }
   }
 

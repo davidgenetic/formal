@@ -14,12 +14,15 @@ class Form extends Element {
   private $errors = array();
   public $fields = array();
 
-  public function __construct(\PHPHtmlParser\Dom\HtmlNode $formElement) {
-    $this->formElement = $formElement;
-    $this->token = $formElement->getAttribute('name');
-    $this->method = strtolower($formElement->getAttribute('method')) ?: 'get';
+  public function __construct(\PHPHtmlParser\Dom\HtmlNode &$formElement) {
+    parent::__construct($formElement);
+
+    $this->formElement = $this->element;
+    $this->token = $this->element->getAttribute('name');
+    $this->method = strtolower($this->element->getAttribute('method')) ?: 'get';
 
     $this->getFields();
+    // var_dump($this->fields);exit;
   }
 
   public function getOutput() {
@@ -74,6 +77,8 @@ class Form extends Element {
       $name = $el->getAttribute('name');
       $inp = new Input($el);
       if ($inp->type == 'radio') {
+        $this->fields[$name][] = $inp;
+      } else if ($inp->type == 'checkbox' && strpos($name, '[]')) {
         $this->fields[$name][] = $inp;
       } else {
         $this->fields[$name] = $inp;
