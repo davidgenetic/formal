@@ -13,6 +13,15 @@ class Formal {
   private static $validates = array();
   private static $config = array();
 
+  // private static $askedForErrors = FALSE;
+
+  public static function init(){
+    if (session_status() == PHP_SESSION_NONE) {
+      // We need a session.
+      session_start();
+    }
+  }
+
   /**
    * Start collecting output of the form.
    **/
@@ -73,22 +82,21 @@ class Formal {
 
       // Check if their are any errors set on the form.
       $errors = $form->getErrors();
-      // var_dump($errors);exit;
       if (count($errors)) {
 
         // We need an HTML element to show the errors to the user.
-        $errorContainer = $dom->getElementById($config['errorContainer']);
-        if ($errorContainer) {
-          $errorContainer = new Element($errorContainer);
-          foreach ($errors as $fieldname => $errs) {
-            if (is_array($errs)) {
-              foreach ($errs as $message) {
-                $errorContainer->append('<div>'. $message .'</div>');
-              }
-            }
-          }
-          $output .= $errorContainer->getContent();
-        }
+        // $errorContainer = $dom->getElementById($config['errorContainer']);
+        // if ($errorContainer) {
+        //   $errorContainer = new Element($errorContainer);
+        //   foreach ($errors as $fieldname => $errs) {
+        //     if (is_array($errs)) {
+        //       foreach ($errs as $message) {
+        //         $errorContainer->append('<div>'. $message .'</div>');
+        //       }
+        //     }
+        //   }
+        //   $output .= $errorContainer->getContent();
+        // }
 
         // Repopulate form with posted data.
         $form->populate($postdata);
@@ -101,6 +109,22 @@ class Formal {
     }
 
     return $output;
+  }
+
+  public static function startErrors($formname) {
+
+  }
+
+  public static function endErrors() {
+
+  }
+
+  public static function getErrors($form_name) {
+    $errors = array();
+    if (!empty(self::$forms[$form_name])) {
+      $errors = self::$forms[$form_name]->getErrors();
+    }
+    return $errors;
   }
 
   /**
@@ -128,9 +152,9 @@ class Formal {
    **/
   public static function config($form_token, $settings = array()) {
     $defaults = array(
-      'hideOnSubmit'      => FALSE,
-      'validateOnSubmit'  => TRUE,
-      'errorContainer' => '#errorContainer',
+      'hideOnSubmit'        => FALSE,
+      'validateOnSubmit'    => TRUE,
+      'errorContainer'      => '#formalErrorContainer',
     );
 
     if (!empty($settings['post'])) {
@@ -144,14 +168,24 @@ class Formal {
 
   /**
    * Validate posted data against a form.
+   *
+   * TODO: move this to the Form class.
    **/
   public static function validate($form, &$data) {
     $token = $form->getToken();
 
+    // var_dump($data['form_protect'], $form->csrf);exit;
+
+    // Check CSRF.
+    if (empty($data['form_protect']) || $data['form_protect'] != $form->csrf) {
+      die('CSRF attack');
+      return FALSE;
+    }
+
     // Anti-spam check.
     // Only a bot can fill in the 'secret' field.
     if (!empty($data['secret'])) {
-      die('antispam');
+      // die('antispam');
       return FALSE;
     }
     unset($data['secret']);
@@ -185,7 +219,8 @@ class Formal {
   }
 
   private static function checkRequired($form, $field, $data) {
-    if ($field->required && empty($data[$field->name])) {
+    $fieldname = str_replace('[]', '', $field->name);
+    if ($field->required && empty($data[$fieldname])) {
       $form->setError($field->name, $field->getLabel() . ' is required.');
     }
   }

@@ -27,6 +27,10 @@ class Input extends Element {
     return $this->name;
   }
 
+  public function setError($message) {
+    $this->class = $this->class . ' error';
+  }
+
   protected function setAttribute($name, $value) {
     parent::setAttribute($name, $value);
 
